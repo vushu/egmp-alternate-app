@@ -7,6 +7,7 @@
 //   - UUID.string() replaced with crypto.randomUUID()
 //   - Buffer (Node) replaced with TextEncoder / btoa / atob
 
+import { Platform } from 'react-native'
 import { Config } from '../config/types'
 import { storageGet, storageSet, storageContains, storageRemove } from '../storage/secureStore'
 import type {
@@ -63,6 +64,22 @@ export function parseUrlParams(url: string): Record<string, string> {
 
 export function isNotEmptyObject(obj: Record<string, any>): boolean {
   return obj != null && !(Object.keys(obj).length === 0 && obj.constructor === Object)
+}
+
+// On web, manufacturer APIs are unreachable directly (no CORS headers).
+// Route requests through the local dev proxy (scripts/dev-proxy.ts) instead.
+// Dev-only: never active in release builds, and native is never proxied.
+const DEV_PROXY_URL = 'http://localhost:8788'
+
+export function proxyUrlForWeb(url: string): string {
+  if (Platform.OS !== 'web' || !__DEV__) return url
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') return url
+    return `${DEV_PROXY_URL}/${parsed.host}${parsed.pathname}${parsed.search}`
+  } catch {
+    return url
+  }
 }
 
 export class Bluelink {
@@ -402,10 +419,12 @@ export class Bluelink {
       ...(props.data && { data: props.data }),
     }
 
-    console.log(`[Bluelink] ${method} ${props.url}`, JSON.stringify(this.debugLastRequest))
+    if (__DEV__) {
+      console.log(`[Bluelink] ${method} ${props.url}`)
+    }
 
     try {
-      const response = await fetch(props.url, {
+      const response = await fetch(proxyUrlForWeb(props.url), {
         method,
         headers,
         ...(props.data && { body: props.data }),
@@ -438,7 +457,9 @@ export class Bluelink {
         json = await response.text()
       }
 
-      console.log(`[Bluelink] response ${response.status}`, !props.notJSON ? JSON.stringify(json) : 'text')
+      if (__DEV__) {
+        console.log(`[Bluelink] response ${response.status}`)
+      }
 
       const checkResponse = props.validResponseFunction(resp, json)
       if (!props.noRetry && checkResponse.retry && !props.noAuth) {

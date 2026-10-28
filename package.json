@@ -12,6 +12,7 @@
     "record-fixtures": "npx tsx scripts/record-fixtures.ts",
     "test:command": "npx tsx scripts/test-commands.ts",
     "test:climate": "npx tsx scripts/test-climate.ts",
+    "dev-proxy": "npx tsx scripts/dev-proxy.ts",
     "build:android": "cd android && ./gradlew assembleRelease"
   },
   "dependencies": {

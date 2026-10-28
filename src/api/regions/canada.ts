@@ -1,7 +1,7 @@
 // Canada region — ported from egmp-bluelink-scriptable/src/lib/bluelink-regions/canada.ts
 // Changes: Keychain→SecureStore, Scriptable Request→fetch, DateFormatter→manual parsing, UUID→crypto
 
-import { Bluelink, BluelinkTokens, BluelinkCar, BluelinkStatus, ClimateRequest, ChargeLimit, Location, DEFAULT_STATUS_CHECK_INTERVAL, MAX_COMPLETION_POLLS, CHARGE_COMPLETION_POLLS, isNotEmptyObject } from '../base'
+import { Bluelink, BluelinkTokens, BluelinkCar, BluelinkStatus, ClimateRequest, ChargeLimit, Location, DEFAULT_STATUS_CHECK_INTERVAL, MAX_COMPLETION_POLLS, CHARGE_COMPLETION_POLLS, isNotEmptyObject, proxyUrlForWeb } from '../base'
 import { Config } from '../../config/types'
 
 const DEFAULT_API_DOMAIN = 'mybluelink.ca'
@@ -77,7 +77,7 @@ export class BluelinkCanada extends Bluelink {
 
   protected async getSessionCookie(): Promise<string> {
     try {
-      const response = await fetch(`https://${this.apiHost}/login`, {
+      const response = await fetch(proxyUrlForWeb(`https://${this.apiHost}/login`), {
         method: 'GET',
         headers: this.getAdditionalHeaders(),
       })
