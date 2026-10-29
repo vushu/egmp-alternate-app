@@ -33,6 +33,10 @@ Environment=BLUEWINK_SESSION_SECRET=<paste random hex here>
 # Optional: change port (must match nginx proxy_pass):
 # Environment=PORT=3000
 
+# Web base path — must match what the bundle was built with
+# (BLUEWINK_BASE_PATH at export time). Default: / (domain root).
+# Environment=BLUEWINK_BASE_PATH=/bil/kona
+
 Restart=always
 RestartSec=5
 User=www-data

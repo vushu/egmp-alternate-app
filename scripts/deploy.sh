@@ -5,10 +5,13 @@
 #   ./scripts/deploy.sh                          # uses BLUEWINK_DEPLOY_TARGET
 #   BLUEWINK_DEPLOY_TARGET=root@1.2.3.4 ./scripts/deploy.sh
 #
-# Target format: [user@]host[:port][/remote/path]
-#   Defaults: user=root, port=22, path=/opt/egmp-alternate-app
+# Env vars:
+#   BLUEWINK_DEPLOY_TARGET  [user@]host[:port][/remote/path]
+#                           Defaults: user=root, port=22, path=/opt/egmp-alternate-app
+#   BLUEWINK_BASE_PATH      Web base path to build with (default: /)
+#                           Must match what the server runs with.
 #
-# The target is intentionally NOT hardcoded — this is a public repo.
+# Neither value is hardcoded — this is a public repo.
 
 set -euo pipefail
 
@@ -18,6 +21,8 @@ if [ -z "$TARGET" ]; then
   echo "  BLUEWINK_DEPLOY_TARGET=root@1.2.3.4 ./scripts/deploy.sh"
   exit 1
 fi
+
+BASE_PATH="${BLUEWINK_BASE_PATH:-/}"
 
 # Parse [user@]host[:port][/path]
 REMOTE_PATH="/opt/egmp-alternate-app"
@@ -32,14 +37,14 @@ if [[ "$TARGET" == *:* ]]; then
 fi
 SSH_TARGET="$TARGET"
 
-echo "==> Building web bundle (with /bil/kona base path)..."
-npx expo export --platform web
+echo "==> Building web bundle (base path: $BASE_PATH)..."
+BLUEWINK_BASE_PATH="$BASE_PATH" npx expo export --platform web
 
 echo "==> Syncing dist/ to ${SSH_TARGET}:${REMOTE_PATH}/dist/ ..."
 rsync -avz --delete -e "ssh -p $SSH_PORT" dist/ "${SSH_TARGET}:${REMOTE_PATH}/dist/"
 
-echo "==> Restarting bluewink service..."
+echo "==> Restarting bluewink service (with BLUEWINK_BASE_PATH=$BASE_PATH)..."
 ssh -p "$SSH_PORT" "$SSH_TARGET" "sudo systemctl restart bluewink && systemctl is-active bluewink"
 
 echo ""
-echo "Deployed. Verify: https://your-domain.dk/bil/kona"
+echo "Deployed with base path: $BASE_PATH"

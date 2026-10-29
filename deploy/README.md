@@ -1,7 +1,8 @@
 # Deploying Bluewink on your own server
 
 The app runs as a Node server (static files + manufacturer API proxy) behind
-nginx with TLS. Everything lives under `/bil/kona` on your domain.
+nginx with TLS. The web base path is configurable via `BLUEWINK_BASE_PATH`
+(default: `/`, i.e. served at the domain root).
 
 ## 1. Get the code and build
 
@@ -9,8 +10,17 @@ nginx with TLS. Everything lives under `/bil/kona` on your domain.
 git clone git@github.com:vushu/egmp-alternate-app.git /opt/egmp-alternate-app
 cd /opt/egmp-alternate-app
 npm install
-npx expo export --platform web        # builds dist/ with /bil/kona baked in
 ```
+
+Build the web bundle — on a small VPS this can exhaust RAM, so prefer
+building locally and deploying with `scripts/deploy.sh` (see below):
+
+```bash
+BLUEWINK_BASE_PATH=/bil/kona npx expo export --platform web
+```
+
+The base path must match the `BLUEWINK_BASE_PATH` the server runs with, and
+the nginx `location` block.
 
 ## 2. Generate secrets
 
@@ -51,15 +61,25 @@ sudo certbot --nginx -d your-domain.dk
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Open **https://your-domain.dk/bil/kona** — you should see the login page.
+Open **https://your-domain.dk** (or your base path, e.g. `/bil/kona`) — you
+should see the login page.
 
 ## 5. Updating the app later
+
+Preferred — build locally, deploy in one command (avoids running the
+memory-hungry bundler on a small VPS):
+
+```bash
+BLUEWINK_DEPLOY_TARGET=root@your-server BLUEWINK_BASE_PATH=/bil/kona ./scripts/deploy.sh
+```
+
+Or manually on the server:
 
 ```bash
 cd /opt/egmp-alternate-app
 git pull
 npm install
-npx expo export --platform web
+BLUEWINK_BASE_PATH=/bil/kona npx expo export --platform web
 sudo systemctl restart bluewink
 ```
 
@@ -69,15 +89,15 @@ sudo systemctl restart bluewink
 |---|---|
 | 502 Bad Gateway | `systemctl status bluewink` — is the Node server up? |
 | Login page loops | `X-Real-IP` header missing in nginx config (rate limiter miscounts) |
-| Assets 404 | Did you run `npx expo export --platform web` after the last `git pull`? |
+| Assets 404 | Did you rebuild (`npx expo export`) after the last `git pull`? |
 | API calls fail | `journalctl -u bluewink` — look for upstream errors |
-| Wrong base path | `BLUEWINK_BASE_PATH` env var must match `experiments.baseUrl` in app.json |
+| Wrong base path | `BLUEWINK_BASE_PATH` must match at build time AND server run time, and the nginx `location` block |
 
 ## Security notes
 
 - The password hash and session secret live only in the systemd unit file —
   never commit them
-- Only `/bil/kona` and `/api-proxy/` are exposed; everything else 404s
+- Only your base path and `/api-proxy/` are exposed; everything else 404s
 - The API proxy only forwards to a hardcoded allowlist of manufacturer hosts
 - On web, credentials are stored in the browser's localStorage — use a
   device/browser profile you control

@@ -38,8 +38,7 @@
       "expo-secure-store"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "baseUrl": "/bil/kona"
+      "typedRoutes": true
     },
     "extra": {
       "router": {},
