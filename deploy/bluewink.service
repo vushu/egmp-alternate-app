@@ -20,9 +20,9 @@ After=network.target
 Type=simple
 # ← change to where you cloned the repo:
 WorkingDirectory=/opt/egmp-alternate-app
-# Run the local tsx binary directly — npx would try to fetch it from npm
-# at runtime, which fails for the unprivileged service user:
-ExecStart=/opt/egmp-alternate-app/node_modules/.bin/tsx scripts/serve-web.ts
+# Zero-dependency plain-JS server — no npm install needed on the server.
+# (scripts/serve-web.ts is the TypeScript original for development.)
+ExecStart=/usr/bin/node scripts/serve-web.mjs
 
 # Password protection (REQUIRED for a public server):
 # Generate with:
@@ -49,6 +49,5 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=/opt/egmp-alternate-app
-
 [Install]
 WantedBy=multi-user.target
