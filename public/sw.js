@@ -1,8 +1,9 @@
 // Minimal service worker: cache-first for static assets, network-only for API calls.
 // Keeps the app shell loadable offline; car data always comes fresh from the network.
+// BLUEWINK_BASE_PATH is substituted at build time by scripts/add-pwa-tags.js.
 
 const CACHE = 'bluewink-v1'
-const APP_PREFIX = '/bil/kona'
+const APP_PREFIX = '__BASE_PATH__'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()

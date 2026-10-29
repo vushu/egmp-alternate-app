@@ -7,6 +7,8 @@ const fs = require('fs')
 const path = require('path')
 
 const DIST = path.join(__dirname, '..', 'dist')
+const BASE_PATH = process.env.BLUEWINK_BASE_PATH?.trim().replace(/\/+$/, '') || ''
+
 const TAGS = `  <!-- PWA -->
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#0c2340" />
@@ -30,4 +32,22 @@ function walk(dir) {
 }
 
 walk(DIST)
+
+// Substitute the base path into the manifest (start_url/scope) and service worker
+const manifestPath = path.join(DIST, 'manifest.json')
+if (fs.existsSync(manifestPath)) {
+  let manifest = fs.readFileSync(manifestPath, 'utf8')
+  manifest = manifest.replaceAll('__BASE_PATH__', BASE_PATH || '/')
+  fs.writeFileSync(manifestPath, manifest)
+  console.log('manifest base path set to:', BASE_PATH || '/')
+}
+
+const swPath = path.join(DIST, 'sw.js')
+if (fs.existsSync(swPath)) {
+  let sw = fs.readFileSync(swPath, 'utf8')
+  sw = sw.replaceAll('__BASE_PATH__', BASE_PATH || '/')
+  fs.writeFileSync(swPath, sw)
+  console.log('service worker base path set to:', BASE_PATH || '/')
+}
+
 console.log('PWA tags injected.')
