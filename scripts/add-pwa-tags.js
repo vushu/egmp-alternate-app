@@ -40,6 +40,8 @@ function walk(dir) {
     html { box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
     body { background-color: #FAF9FD; }
     @media (prefers-color-scheme: dark) { body { background-color: #111318; } }
+    /* react-native-web clips tab labels to a squeezed box — let them render fully */
+    [role="tab"] > div:last-child { height: auto !important; overflow: visible !important; line-height: 16px !important; }
   </style>
 </head>`
       )
