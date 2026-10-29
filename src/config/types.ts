@@ -19,6 +19,8 @@ export function getAuthMethod(manufacturer: string, region: string): AuthMethod 
   return 'credentials'
 }
 
+export type ThemePreference = 'light' | 'dark' | 'auto'
+
 export interface Config {
   manufacturer: string
   auth: Auth
@@ -30,6 +32,7 @@ export interface Config {
   mfaPreference: 'sms' | 'email'
   carColor: string
   vin?: string
+  themePreference?: 'light' | 'dark' | 'auto'
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -48,6 +51,7 @@ export const DEFAULT_CONFIG: Config = {
   climateSeatLevel: 'Off',
   vin: undefined,
   carColor: 'white',
+  themePreference: 'auto',
 }
 
 export const SUPPORTED_REGIONS = ['canada', 'usa', 'europe', 'india', 'australia']

@@ -12,9 +12,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/hooks/useTheme';
 import { ChipGroup } from '@/components/ChipGroup';
-import { Config, DEFAULT_CONFIG } from '@/src/config/types';
+import { Config, DEFAULT_CONFIG, ThemePreference } from '@/src/config/types';
 import { loadConfig, saveConfig } from '@/src/storage/configStore';
 import { useCarStore } from '@/src/store/carStore';
+import { useThemeStore } from '@/src/store/themeStore';
 
 export default function PreferencesScreen() {
   const t = useTheme();
@@ -41,6 +42,8 @@ export default function PreferencesScreen() {
   }, [saved]);
 
   const updateConfig = useCarStore((s) => s.updateConfig);
+  const themePreference = useThemeStore((s) => s.preference);
+  const setThemePreference = useThemeStore((s) => s.setPreference);
 
   const handleSave = async () => {
     await saveConfig(config);
@@ -83,6 +86,22 @@ export default function PreferencesScreen() {
             { label: 'Miles', value: 'mi' },
           ]}
           onSelect={(v) => setConfig((prev) => ({ ...prev, distanceUnit: v as 'km' | 'mi' }))}
+          t={t}
+        />
+
+        <ChipGroup
+          label="Theme"
+          value={themePreference}
+          options={[
+            { label: 'Auto', value: 'auto' },
+            { label: 'Light', value: 'light' },
+            { label: 'Dark', value: 'dark' },
+          ]}
+          onSelect={(v) => {
+            const pref = v as ThemePreference;
+            setConfig((prev) => ({ ...prev, themePreference: pref }));
+            setThemePreference(pref);
+          }}
           t={t}
         />
 
