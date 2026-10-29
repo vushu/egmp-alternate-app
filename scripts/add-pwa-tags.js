@@ -37,7 +37,7 @@ function walk(dir) {
       html = html.replace(
         '</head>',
         `  <style>
-    html { box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    html { box-sizing: border-box; padding: calc(env(safe-area-inset-top) + 6px) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
     body { background-color: #FAF9FD; }
     @media (prefers-color-scheme: dark) { body { background-color: #111318; } }
     /* react-native-web clips tab labels to a squeezed box — let them render fully */

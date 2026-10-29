@@ -62,7 +62,8 @@ export default function TabLayout() {
         headerTitleStyle: {
           fontWeight: '600',
           fontSize: 20,
-        },
+          marginTop: insets.top,
+        } as any,
         headerRight: () => <SettingsButton color={t.onSurface} />,
       }}>
       <Tabs.Screen
