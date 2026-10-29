@@ -39,6 +39,7 @@ SSH_TARGET="$TARGET"
 
 echo "==> Building web bundle (base path: $BASE_PATH)..."
 BLUEWINK_BASE_PATH="$BASE_PATH" npx expo export --platform web
+node scripts/add-pwa-tags.js
 
 echo "==> Syncing dist/ to ${SSH_TARGET}:${REMOTE_PATH}/dist/ ..."
 rsync -avz --delete -e "ssh -p $SSH_PORT" dist/ "${SSH_TARGET}:${REMOTE_PATH}/dist/"

@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
 import 'react-native-reanimated';
 
 import { md3 } from '@/constants/Colors';
@@ -45,6 +45,15 @@ const CustomLight = {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({});
+
+  // Register the service worker on web (PWA support)
+  useEffect(() => {
+    if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) =>
+        console.warn('[PWA] service worker registration failed:', err)
+      );
+    }
+  }, []);
 
   useEffect(() => {
     if (error) throw error;
