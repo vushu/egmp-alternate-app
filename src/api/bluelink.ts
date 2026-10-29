@@ -21,7 +21,7 @@ export async function initRegionalBluelink(
   refreshAuth = true,
   mfaInputCallback?: MFAInputCallback,
 ): Promise<Bluelink | undefined> {
-  if (config.auth.refreshToken === 'DEMO') {
+  if (config.auth.refreshToken === 'DEMO' || config.auth.pin === 'DEMO') {
     return await BluelinkDemo.init(config)
   }
 

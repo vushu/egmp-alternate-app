@@ -27,6 +27,8 @@ export default function OAuthScreen() {
     );
   }
 
+  const brandName = manufacturer.charAt(0).toUpperCase() + manufacturer.slice(1);
+
   const handleCallback = useCallback((url: string) => {
     if (handled.current) return;
     if (url.startsWith(authUrls.callbackUrl) && url.includes('code=')) {
@@ -46,6 +48,7 @@ export default function OAuthScreen() {
     return (
       <WebOAuthScreen
         startUrl={authUrls.startUrl}
+        brandName={brandName}
         onSubmit={(url) => handleCallback(url)}
       />
     );
@@ -86,7 +89,7 @@ export default function OAuthScreen() {
 
 // Web browsers can't embed Kia's login page (no CORS/X-Frame-Options), so we
 // open it in a popup and ask the user to paste the final redirect URL back.
-function WebOAuthScreen({ startUrl, onSubmit }: { startUrl: string; onSubmit: (url: string) => void }) {
+function WebOAuthScreen({ startUrl, brandName, onSubmit }: { startUrl: string; brandName: string; onSubmit: (url: string) => void }) {
   const t = useTheme();
   const [url, setUrl] = useState('');
   const [opened, setOpened] = useState(false);
@@ -104,15 +107,15 @@ function WebOAuthScreen({ startUrl, onSubmit }: { startUrl: string; onSubmit: (u
 
   return (
     <View style={[styles.center, { backgroundColor: t.surface }]}>
-      <Text style={[styles.webTitle, { color: t.onSurface }]}>Kia Login</Text>
+      <Text style={[styles.webTitle, { color: t.onSurface }]}>{brandName} Login</Text>
       <Text style={[styles.webText, { color: t.onSurfaceVariant }]}>
-        Tap the button to open Kia's login page in a new tab. After logging in,
+        Tap the button to open {brandName}'s login page in a new tab. After logging in,
         copy the full URL from the address bar (it contains a code) and paste it below.
       </Text>
       <TouchableOpacity
         style={[styles.webButton, { backgroundColor: t.primary }]}
         onPress={openLogin}>
-        <Text style={[styles.webButtonText, { color: t.onPrimary }]}>Open Kia Login</Text>
+        <Text style={[styles.webButtonText, { color: t.onPrimary }]}>Open {brandName} Login</Text>
       </TouchableOpacity>
       {opened && (
         <>

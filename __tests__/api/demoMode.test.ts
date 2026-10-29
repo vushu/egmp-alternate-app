@@ -72,6 +72,16 @@ describe('Demo mode routing', () => {
     expect(instance).toBeInstanceOf(BluelinkDemo)
     expect(instance!.isDemo()).toBe(true)
   })
+
+  it('DEMO PIN also activates demo mode (WebView flow has no refresh-token field)', async () => {
+    const pinDemoConfig: Config = {
+      ...DEMO_CONFIG,
+      auth: { ...DEMO_CONFIG.auth, refreshToken: undefined, pin: 'DEMO' },
+    }
+    const instance = await initRegionalBluelink(pinDemoConfig, false)
+    expect(instance).toBeInstanceOf(BluelinkDemo)
+    expect(instance!.isDemo()).toBe(true)
+  })
 })
 
 describe('Demo mode fixture loading', () => {

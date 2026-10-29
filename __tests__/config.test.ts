@@ -9,7 +9,7 @@ describe('Config', () => {
   })
 
   test('getAuthMethod returns correct method for each region/manufacturer', () => {
-    expect(getAuthMethod('hyundai', 'europe')).toBe('refresh_token')
+    expect(getAuthMethod('hyundai', 'europe')).toBe('webview')
     expect(getAuthMethod('kia', 'europe')).toBe('webview')
     expect(getAuthMethod('hyundai', 'usa')).toBe('credentials')
     expect(getAuthMethod('kia', 'canada')).toBe('credentials')

@@ -13,7 +13,6 @@ export type AuthMethod = 'credentials' | 'refresh_token' | 'webview'
 
 export function getAuthMethod(manufacturer: string, region: string): AuthMethod {
   if (region === 'europe') {
-    if (manufacturer.toLowerCase() === 'hyundai') return 'refresh_token'
     return 'webview'
   }
   return 'credentials'

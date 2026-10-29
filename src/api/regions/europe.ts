@@ -1,5 +1,7 @@
 // Europe region — based on bluelinky's EuropeanBrandAuthStrategy + EuropeanController.
-// Hyundai uses a user-provided refresh token (no WebView). Kia uses WebView-based OAuth.
+// Hyundai and Kia both use WebView-based OAuth against the OneApp (CCI) identity system.
+// Hyundai EU previously used a user-provided refresh token; Hyundai's IDP now blocks
+// that flow, so both brands log in through the OneApp WebView + CCI token exchange.
 
 import {
   Bluelink,
@@ -35,11 +37,17 @@ interface APIConfig {
   authClientSecret?: string
   clientId: string
   pushType: string
+  // OneApp (CCI) identity — used by the WebView login flow
+  cciApiDomain?: string
+  cciPackageId?: string
+  cciClientName?: string
+  cciFingerprintKeys?: [string, string, string]
 }
 
 const API_CONFIG: Record<string, APIConfig> = {
   hyundai: {
     apiDomain: 'prd.eu-ccapi.hyundai.com',
+    newApiDomain: 'cci-api-eu.hyundai.com',
     apiPort: 8080,
     appId: '014d2225-8495-4735-812d-2616334fd15d',
     authCfb: 'RFtoRq/vDXJmRndoZaZQyfOot7OrIqGVFj96iY2WL3yyH5Z/pUvlUhqmCxD2t+D65SQ=',
@@ -49,6 +57,10 @@ const API_CONFIG: Record<string, APIConfig> = {
     clientId: '6d477c38-3ca4-4cf3-9557-2a1929a94654',
     authClientSecret: 'KUy49XxPzLpLuoK0xhBC77W6VXhmtQR9iQhmIFjjoY4IpxsV',
     pushType: 'GCM',
+    cciApiDomain: 'cci-api-eu.hyundai.com',
+    cciPackageId: 'com.hyundai.oneapp.eu',
+    cciClientName: 'HyundaiEU',
+    cciFingerprintKeys: ['OsZDfDuCyVX', 'yfqjCoA2JbX', '2MrLpGwNBC'],
   },
   kia: {
     apiDomain: 'prd.eu-ccapi.kia.com',
@@ -66,7 +78,90 @@ const API_CONFIG: Record<string, APIConfig> = {
 const WEBVIEW_AUTH_STORE_KEY = 'egmp-bl-webview-auth'
 const WEBVIEW_AUTH_MAX_AGE_MS = 5 * 60 * 1000
 
-// Auth URLs for WebView-based login (Kia only — Hyundai uses refresh token).
+// Synchronous HMAC-SHA256 (hex digest) for the CCI X-Fingerprint signature.
+// Uses a compact pure-JS SHA-256 implementation so it works on native and web
+// without async crypto APIs.
+export function hmacSha256Hex(key: string, message: string): string {
+  const sha256 = (bytes: number[]): number[] => {
+    const K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    ]
+    const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]
+    const w = new Array(64).fill(0)
+
+    const padded = [...bytes]
+    const bitLen = bytes.length * 8
+    padded.push(0x80)
+    while (padded.length % 64 !== 56) padded.push(0)
+    // 64-bit big-endian length (high 4 bytes are zero for realistic sizes)
+    padded.push(0, 0, 0, 0, (bitLen >>> 24) & 0xff, (bitLen >>> 16) & 0xff, (bitLen >>> 8) & 0xff, bitLen & 0xff)
+
+    const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n))
+    for (let i = 0; i < padded.length; i += 64) {
+      for (let t = 0; t < 16; t++) {
+        w[t] =
+          (padded[i + t * 4]! << 24) | (padded[i + t * 4 + 1]! << 16) | (padded[i + t * 4 + 2]! << 8) | padded[i + t * 4 + 3]!
+      }
+      for (let t = 16; t < 64; t++) {
+        const s0 = rotr(w[t - 15]!, 7) ^ rotr(w[t - 15]!, 18) ^ (w[t - 15]! >>> 3)
+        const s1 = rotr(w[t - 2]!, 17) ^ rotr(w[t - 2]!, 19) ^ (w[t - 2]! >>> 10)
+        w[t] = (w[t - 16]! + s0 + w[t - 7]! + s1) >>> 0
+      }
+      let [a, b, c, d, e, f, g, h] = H
+      for (let t = 0; t < 64; t++) {
+        const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)
+        const ch = (e & f) ^ (~e & g)
+        const temp1 = (h + S1 + ch + K[t]! + w[t]!) >>> 0
+        const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)
+        const maj = (a & b) ^ (a & c) ^ (b & c)
+        const temp2 = (S0 + maj) >>> 0
+        h = g
+        g = f
+        f = e
+        e = (d + temp1) >>> 0
+        d = c
+        c = b
+        b = a
+        a = (temp1 + temp2) >>> 0
+      }
+      H[0] = (H[0]! + a) >>> 0
+      H[1] = (H[1]! + b) >>> 0
+      H[2] = (H[2]! + c) >>> 0
+      H[3] = (H[3]! + d) >>> 0
+      H[4] = (H[4]! + e) >>> 0
+      H[5] = (H[5]! + f) >>> 0
+      H[6] = (H[6]! + g) >>> 0
+      H[7] = (H[7]! + h) >>> 0
+    }
+    const out: number[] = []
+    for (const word of H) {
+      out.push((word >>> 24) & 0xff, (word >>> 16) & 0xff, (word >>> 8) & 0xff, word & 0xff)
+    }
+    return out
+  }
+
+  const strBytes = (s: string): number[] => Array.from(new TextEncoder().encode(s))
+
+  // HMAC per RFC 2104: keys longer than the block size are hashed first
+  let keyBytes = strBytes(key)
+  if (keyBytes.length > 64) keyBytes = sha256(keyBytes)
+  while (keyBytes.length < 64) keyBytes.push(0)
+
+  const inner = keyBytes.map((b, i) => b ^ 0x36)
+  const outer = keyBytes.map((b, i) => b ^ 0x5c)
+  const innerHash = sha256([...inner, ...strBytes(message)])
+  const mac = sha256([...outer, ...innerHash])
+  return mac.map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Auth URLs for WebView-based login (OneApp flow for both Hyundai and Kia EU).
 export interface EuropeAuthUrls {
   startUrl: string
   callbackUrl: string
@@ -89,6 +184,22 @@ export function getEuropeAuthUrls(manufacturer: string): EuropeAuthUrls | null {
           'ui_locales=en-GB',
         ].join('&'),
       callbackUrl: 'https://oneapp.kia.com/redirect',
+    }
+  }
+
+  if (manufacturer === 'hyundai') {
+    return {
+      startUrl:
+        `https://${cfg.authHost}/auth/api/v2/user/oauth2/authorize?` +
+        [
+          'client_id=4f4953b5-02e1-4dbc-8599-87e983ee1be5',
+          'redirect_uri=https://oneapp.hyundai.com/redirect',
+          'response_type=code',
+          'state=ccsp',
+          'lang=en',
+          'country=de',
+        ].join('&'),
+      callbackUrl: 'https://oneapp.hyundai.com/redirect',
     }
   }
 
@@ -204,14 +315,231 @@ export class BluelinkEurope extends Bluelink {
   }
 
   protected async HyundaiLogin(): Promise<BluelinkTokens | undefined> {
-    // Refresh-token-only flow: user provided a refresh token in config
-    if (this.config.auth.refreshToken) {
-      console.log('[Europe] Using provided refresh token for initial login')
-      return await this.refreshHyundaiToken(this.config.auth.refreshToken)
+    // Legacy refresh-token flow: still honoured when the user has a working
+    // token, but Hyundai's IDP now rejects most of these (403 / invalid grant),
+    // so the primary path is the OneApp WebView login below.
+    if (this.config.auth.refreshToken && this.config.auth.refreshToken !== 'DEMO') {
+      console.log('[Europe] Trying provided refresh token for initial login')
+      const tokens = await this.refreshHyundaiToken(this.config.auth.refreshToken)
+      if (tokens) return tokens
+      console.log('[Europe] Refresh token rejected — falling back to WebView login')
     }
 
-    console.log('[Europe] No refresh token provided for Hyundai Europe')
+    // OneApp WebView flow (same shape as Kia): the user logs in inside the
+    // WebView, the redirect URL with the auth code is stored, then exchanged
+    // for CCI tokens on the next connect attempt.
+    const storedRedirect = await getStoredWebviewAuthResult()
+    if (!storedRedirect) {
+      console.log('[Europe Hyundai] No WebView auth result — login required')
+      this.loginRequiredWebview = true
+      return undefined
+    }
+    await clearStoredWebviewAuthResult()
+
+    const codeParams = parseUrlParams(storedRedirect)
+    const code = codeParams['code']
+    if (!code) {
+      console.error('[Europe Hyundai] Failed to extract code from redirect', storedRedirect)
+      this.loginRequiredWebview = true
+      return undefined
+    }
+
+    return await this.exchangeOneAppCode(code)
+  }
+
+  // Exchange a OneApp OAuth authorization code for CCI tokens, then for a CCS
+  // access token. Mirrors the flow the official Hyundai/Kia apps use:
+  //   POST cci-api-eu.../auth/v1/token?code=...  (fingerprint-gated)
+  //   POST cci-api-eu.../auth/v1/token-exchange?serviceType=CCS
+  // Falls back to the legacy domain/api routes when the fingerprint gate is
+  // not enforced.
+  private async exchangeOneAppCode(code: string): Promise<BluelinkTokens | undefined> {
+    const cciDomain = this.apiConfig.cciApiDomain
+    if (!cciDomain) {
+      console.error('[Europe] OneApp CCI domain not configured for this manufacturer')
+      return undefined
+    }
+
+    const deviceId = this.generateUUID()
+    const fpHeaders = this.buildCciFingerprintHeaders(deviceId)
+
+    // Step 1: exchange the auth code for the CCI token set
+    const respTokens = await this.request({
+      url: `https://${cciDomain}/auth/v1/token?code=${code}`,
+      method: 'POST',
+      noAuth: true,
+      noRetry: true,
+      disableAdditionalHeaders: true,
+      validResponseFunction: this.requestResponseValid.bind(this),
+      headers: fpHeaders,
+    })
+
+    let tokensJson = respTokens.json
+    if (!this.requestResponseValid(respTokens.resp, tokensJson).valid) {
+      // Fallback: legacy unsigned domain/api exchange
+      console.log('[Europe] Fingerprint-gated token exchange failed — trying legacy route')
+      const legacy = await this.request({
+        url: `https://${cciDomain}/domain/api/v1/auth/token?code=${code}`,
+        method: 'POST',
+        noAuth: true,
+        disableAdditionalHeaders: true,
+        validResponseFunction: this.requestResponseValid.bind(this),
+        headers: this.buildCciLegacyHeaders(deviceId),
+      })
+      if (!this.requestResponseValid(legacy.resp, legacy.json).valid) {
+        throw Error(`Failed to exchange auth code: ${JSON.stringify(legacy.resp)}`)
+      }
+      tokensJson = legacy.json
+    }
+
+    if (!tokensJson.accessToken) {
+      console.error('[Europe] CCI token exchange returned no accessToken')
+      return undefined
+    }
+
+    const tokens: BluelinkTokens = {
+      accessToken: '',
+      refreshToken: '',
+      expiry: Math.floor(Date.now() / 1000) + Number(tokensJson.expiresIn ?? 3600),
+      authId: deviceId,
+      additionalTokens: {
+        access: tokensJson.accessToken,
+        refresh: tokensJson.refreshToken,
+        exchangeableAccess: tokensJson.exchangeableAccessToken,
+        exchangeableRefresh: tokensJson.exchangeableRefreshToken,
+        nonCcsToken: tokensJson.nonCcsToken,
+        nonCcsRefreshToken: tokensJson.nonCcsRefreshToken,
+        idToken: tokensJson.idToken,
+      },
+    }
+
+    return await this.cciTokenExchange(tokens, deviceId)
+  }
+
+  // Exchange the CCI access token for a CCS token accepted by the legacy
+  // ccapi:8080 vehicle endpoints this app uses.
+  private async cciTokenExchange(tokens: BluelinkTokens, deviceId: string): Promise<BluelinkTokens | undefined> {
+    if (!tokens.additionalTokens || !isNotEmptyObject(tokens.additionalTokens)) return undefined
+    const cciDomain = this.apiConfig.cciApiDomain!
+
+    const fpHeaders = this.buildCciFingerprintHeaders(deviceId)
+    fpHeaders['authorization'] = `Bearer ${tokens.additionalTokens['access']}`
+    fpHeaders['Authentication'] = tokens.additionalTokens['nonCcsToken'] ?? ''
+    if (tokens.additionalTokens['exchangeableAccess']) {
+      fpHeaders['exchangeable-token'] = tokens.additionalTokens['exchangeableAccess']
+      fpHeaders['non-ccs-token'] = tokens.additionalTokens['nonCcsToken'] ?? ''
+    }
+
+    const respToken = await this.request({
+      url: `https://${cciDomain}/auth/v1/token-exchange?serviceType=CCS`,
+      method: 'POST',
+      noAuth: true,
+      noRetry: true,
+      disableAdditionalHeaders: true,
+      validResponseFunction: this.requestResponseValid.bind(this),
+      headers: fpHeaders,
+    })
+
+    if (this.requestResponseValid(respToken.resp, respToken.json).valid && respToken.json.accessToken) {
+      tokens.accessToken = `Bearer ${respToken.json.accessToken}`
+      return tokens
+    }
+
+    // Fallback: legacy unsigned domain/api exchange
+    console.log('[Europe] Fingerprint-gated CCS exchange failed — trying legacy route')
+    const legacyHeaders = this.buildCciLegacyHeaders(deviceId, {
+      cciAccess: tokens.additionalTokens['access'],
+      nonCcsToken: tokens.additionalTokens['nonCcsToken'],
+      exchangeable: tokens.additionalTokens['exchangeableAccess'],
+    })
+    const legacy = await this.request({
+      url: `https://${cciDomain}/domain/api/v1/auth/token-exchange?serviceType=CCS`,
+      method: 'POST',
+      noAuth: true,
+      disableAdditionalHeaders: true,
+      validResponseFunction: this.requestResponseValid.bind(this),
+      headers: legacyHeaders,
+    })
+
+    if (this.requestResponseValid(legacy.resp, legacy.json).valid && legacy.json.accessToken) {
+      tokens.accessToken = `Bearer ${legacy.json.accessToken}`
+      return tokens
+    }
     return undefined
+  }
+
+  // Build the signed header set for the fingerprint-gated CCI auth endpoints.
+  // The X-Fingerprint is an HMAC-SHA256 over the client identity plus
+  // app-embedded constants (recovered from the OneApp Android build).
+  private buildCciFingerprintHeaders(deviceId: string): Record<string, string> {
+    const keys = this.apiConfig.cciFingerprintKeys!
+    const identityHeaders: Record<string, string> = {
+      'client-id': this.apiConfig.cciPackageId!,
+      'client-name': this.apiConfig.cciClientName!,
+      'client-version': '1.4.0',
+      'client-os-code': 'android',
+      'client-os-version': '14',
+      'client-device-id': deviceId,
+      'client-device-model': 'SM-S918B',
+      'client-notification-provider-type': 'FCM',
+      locale: 'EN',
+      timezone: this.getTimeZoneFull(),
+      'App-Request-Id': `${this.genRanHex(24).toUpperCase()}_${deviceId.replace(/-/g, '')}_AOS`,
+      'X-Brand': this.config.manufacturer.charAt(0).toUpperCase() + this.config.manufacturer.slice(1),
+      'X-Region': 'eu',
+      'User-Agent': 'okhttp/4.12.0',
+      Accept: '*/*',
+      'Accept-Language': 'en',
+    }
+
+    const identity =
+      identityHeaders['client-id'] +
+      identityHeaders['client-name'] +
+      identityHeaders['client-version'] +
+      identityHeaders['client-os-code']
+    const timestamp = Date.now().toString()
+    const message = identity + identityHeaders['client-os-version'] + timestamp
+    const key = identity + keys.join('')
+
+    // HMAC-SHA256 via Web Crypto (async at call time is awkward here; the
+    // base class request() is sync-header, so compute with a small sync
+    // implementation over TextEncoder bytes).
+    const fingerprint = hmacSha256Hex(key, message)
+    return {
+      ...identityHeaders,
+      'X-Timestamp': timestamp,
+      'X-Fingerprint': fingerprint,
+    }
+  }
+
+  // Unsigned header set for the legacy domain/api CCI routes.
+  private buildCciLegacyHeaders(
+    deviceId: string,
+    auth?: { cciAccess?: string; nonCcsToken?: string; exchangeable?: string },
+  ): Record<string, string> {
+    const headers: Record<string, string> = {
+      'client-id': this.apiConfig.cciPackageId!,
+      'client-name': this.apiConfig.cciClientName!,
+      'client-version': '1.4.0',
+      'client-os-code': 'android',
+      'client-os-version': '14',
+      'client-device-id': deviceId,
+      'client-device-model': 'SM-S918B',
+      'client-notification-provider-type': 'FCM',
+      locale: 'EN',
+      timezone: this.getTimeZoneFull(),
+      Accept: 'application/json',
+      'Accept-Language': 'en',
+      'User-Agent': 'okhttp/4.12.0',
+      'Content-Length': '0',
+    }
+    if (auth?.nonCcsToken) headers['Authentication'] = auth.nonCcsToken
+    if (auth?.cciAccess) headers['authorization'] = `Bearer ${auth.cciAccess}`
+    if (auth?.exchangeable) {
+      headers['exchangeable-token'] = auth.exchangeable
+      headers['non-ccs-token'] = auth.nonCcsToken ?? ''
+    }
+    return headers
   }
 
   private async refreshHyundaiToken(refreshToken: string): Promise<BluelinkTokens | undefined> {
@@ -457,8 +785,108 @@ export class BluelinkEurope extends Bluelink {
     return undefined
   }
 
+  // Refresh a Hyundai OneApp (CCI) token set: POST /auth/v2/token-refresh with
+  // the full token set, signed with X-Fingerprint, then re-exchange the CCS
+  // token. Falls back to the legacy domain/api route.
+  protected async hyundaiOneAppRefresh(): Promise<BluelinkTokens | undefined> {
+    const at = this.cache?.token?.additionalTokens
+    if (!at || !isNotEmptyObject(at)) return undefined
+    const cciDomain = this.apiConfig.cciApiDomain
+    if (!cciDomain) return undefined
+
+    const deviceId = this.cache.token.authId ?? this.generateUUID()
+    const body = JSON.stringify({
+      accessToken: at['access'],
+      refreshToken: at['refresh'],
+      exchangeableAccessToken: at['exchangeableAccess'],
+      exchangeableRefreshToken: at['exchangeableRefresh'],
+      nonCcsToken: at['nonCcsToken'],
+      nonCcsRefreshToken: at['nonCcsRefreshToken'],
+      idToken: at['idToken'],
+    })
+
+    const fpHeaders = this.buildCciFingerprintHeaders(deviceId)
+    fpHeaders['Content-Type'] = 'application/json'
+
+    const respTokens = await this.request({
+      url: `https://${cciDomain}/auth/v2/token-refresh`,
+      method: 'POST',
+      data: body,
+      noAuth: true,
+      disableAdditionalHeaders: true,
+      validResponseFunction: this.requestResponseValid.bind(this),
+      headers: fpHeaders,
+    })
+
+    if (this.requestResponseValid(respTokens.resp, respTokens.json).valid && respTokens.json.accessToken) {
+      return await this.cciTokenExchange(
+        {
+          accessToken: '',
+          refreshToken: '',
+          expiry: Math.floor(Date.now() / 1000) + Number(respTokens.json.expiresIn ?? 3600),
+          authId: deviceId,
+          additionalTokens: {
+            access: respTokens.json.accessToken,
+            refresh: respTokens.json.refreshToken,
+            exchangeableAccess: respTokens.json.exchangeableAccessToken,
+            exchangeableRefreshToken: respTokens.json.exchangeableRefreshToken,
+            nonCcsToken: respTokens.json.nonCcsToken,
+            nonCcsRefreshToken: respTokens.json.nonCcsRefreshToken,
+            idToken: respTokens.json.idToken,
+          },
+        },
+        deviceId,
+      )
+    }
+
+    // Fallback: legacy unsigned domain/api refresh
+    console.log('[Europe] Fingerprint-gated refresh failed — trying legacy route')
+    const legacyHeaders = this.buildCciLegacyHeaders(deviceId, {
+      cciAccess: at['access'],
+      nonCcsToken: at['nonCcsToken'],
+      exchangeable: at['exchangeableAccess'],
+    })
+    legacyHeaders['Content-Type'] = 'application/json'
+
+    const legacy = await this.request({
+      url: `https://${cciDomain}/domain/api/v2/auth/token-refresh`,
+      method: 'POST',
+      data: body,
+      noAuth: true,
+      disableAdditionalHeaders: true,
+      validResponseFunction: this.requestResponseValid.bind(this),
+      headers: legacyHeaders,
+    })
+
+    if (this.requestResponseValid(legacy.resp, legacy.json).valid && legacy.json.accessToken) {
+      return await this.cciTokenExchange(
+        {
+          accessToken: '',
+          refreshToken: '',
+          expiry: Math.floor(Date.now() / 1000) + Number(legacy.json.expiresIn ?? 3600),
+          authId: deviceId,
+          additionalTokens: {
+            access: legacy.json.accessToken,
+            refresh: legacy.json.refreshToken,
+            exchangeableAccess: legacy.json.exchangeableAccessToken,
+            exchangeableRefreshToken: legacy.json.exchangeableRefreshToken,
+            nonCcsToken: legacy.json.nonCcsToken,
+            nonCcsRefreshToken: legacy.json.nonCcsRefreshToken,
+            idToken: legacy.json.idToken,
+          },
+        },
+        deviceId,
+      )
+    }
+    return undefined
+  }
+
   protected async refreshTokens(): Promise<BluelinkTokens | undefined> {
     if (this.cache?.token.additionalTokens) {
+      // Hyundai OneApp sessions refresh through the CCI route; Kia through its own
+      if (this.config.manufacturer === 'hyundai' && this.apiConfig.cciApiDomain) {
+        return await this.hyundaiOneAppRefresh()
+      }
       return await this.newRefreshTokens()
     }
 

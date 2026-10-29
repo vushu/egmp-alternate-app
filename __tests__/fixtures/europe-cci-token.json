@@ -1,0 +1,10 @@
+{
+  "accessToken": "fixture-cci-access-token",
+  "refreshToken": "fixture-cci-refresh-token",
+  "exchangeableAccessToken": "fixture-cci-exchangeable-access",
+  "exchangeableRefreshToken": "fixture-cci-exchangeable-refresh",
+  "nonCcsToken": "fixture-cci-non-ccs-token",
+  "nonCcsRefreshToken": "fixture-cci-non-ccs-refresh",
+  "idToken": "fixture-cci-id-token",
+  "expiresIn": 3600
+}

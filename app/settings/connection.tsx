@@ -176,33 +176,18 @@ export default function ConnectionScreen() {
       {!needsCarSelection && (
         <View style={[styles.section, { backgroundColor: t.surfaceContainer }]}>
           <Text style={[styles.sectionTitle, { color: t.onSurfaceVariant }]}>
-            {authMethod === 'refresh_token' ? 'Authentication' : 'Credentials'}
+            {authMethod === 'webview' ? 'Login' : 'Credentials'}
           </Text>
 
-          {authMethod === 'refresh_token' && (
+          {authMethod === 'webview' && (
             <View style={styles.field}>
-              <Text style={[styles.label, { color: t.onSurfaceVariant }]}>Refresh Token</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.multilineInput,
-                  {
-                    backgroundColor: t.surfaceContainerHigh,
-                    color: t.onSurface,
-                    borderColor: t.outlineVariant,
-                  },
-                ]}
-                value={config.auth.refreshToken ?? ''}
-                onChangeText={(v) => updateAuth('refreshToken', v)}
-                multiline
-                numberOfLines={3}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder="Paste refresh token from bluelink_refresh_token tool"
-                placeholderTextColor={t.outline}
-              />
+              <Text style={[styles.label, { color: t.onSurfaceVariant }]}>Hyundai / Kia Account</Text>
               <Text style={[styles.demoHint, { color: t.onSurfaceVariant }]}>
-                Tip: enter DEMO as the refresh token to try the app with sample vehicle data — no real account needed.
+                Tap Connect and log in with your {config.manufacturer} account in the window that
+                opens. You only need to do this once — the app keeps you signed in after that.
+              </Text>
+              <Text style={[styles.demoHint, { color: t.onSurfaceVariant }]}>
+                Tip: enter DEMO as the PIN to try the app with sample vehicle data — no real account needed.
               </Text>
             </View>
           )}
