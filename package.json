@@ -48,6 +48,7 @@
     "@types/react": "~19.1.0",
     "jest-expo": "~54.0.17",
     "react-test-renderer": "19.1.0",
+    "tsx": "^4.23.15",
     "typescript": "~5.9.2"
   },
   "private": true

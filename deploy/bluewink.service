@@ -20,7 +20,9 @@ After=network.target
 Type=simple
 # ← change to where you cloned the repo:
 WorkingDirectory=/opt/egmp-alternate-app
-ExecStart=/usr/bin/npx tsx scripts/serve-web.ts
+# Run the local tsx binary directly — npx would try to fetch it from npm
+# at runtime, which fails for the unprivileged service user:
+ExecStart=/opt/egmp-alternate-app/node_modules/.bin/tsx scripts/serve-web.ts
 
 # Password protection (REQUIRED for a public server):
 # Generate with:
