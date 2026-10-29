@@ -267,9 +267,12 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', 'http://localhost')
   const origin = req.headers.origin
 
+  // PWA assets are public (needed before login for installability; not sensitive)
+  const isPwaAsset = /^\/(manifest\.json|sw\.js|icon-\d+\.png|favicon\..*)$/.test(url.pathname)
+
   // Password protection: everything (static files AND the API proxy)
   // requires a valid session when BLUEWINK_PASSWORD_HASH is set.
-  if (PASSWORD_HASH) {
+  if (PASSWORD_HASH && !isPwaAsset) {
     if (url.pathname === '/login') {
       if (req.method === 'POST') {
         handleLogin(req, res)
