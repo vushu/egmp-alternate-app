@@ -31,11 +31,13 @@ function walk(dir) {
         'name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"',
         'name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"'
       )
-      // iOS safe areas + themed background behind the status bar
+      // iOS safe areas + themed background behind the status bar.
+      // border-box is essential: without it the padding extends the page
+      // beyond the viewport instead of shrinking the app area.
       html = html.replace(
         '</head>',
         `  <style>
-    html { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    html { box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
     body { background-color: #FAF9FD; }
     @media (prefers-color-scheme: dark) { body { background-color: #111318; } }
   </style>
