@@ -51,6 +51,10 @@ export default function TabLayout() {
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 0,
+          height: 56 + insets.top,
+        },
+        headerTitleContainerStyle: {
+          paddingTop: insets.top,
         },
         headerTintColor: t.onSurface,
         headerTitleStyle: {

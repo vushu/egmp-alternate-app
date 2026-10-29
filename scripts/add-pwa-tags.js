@@ -24,6 +24,21 @@ function walk(dir) {
     else if (entry.name.endsWith('.html')) {
       let html = fs.readFileSync(full, 'utf8')
       if (html.includes('rel="manifest"')) continue // already patched
+      // iPhone notch/Dynamic Island: extend web content into safe areas
+      html = html.replace(
+        'name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"',
+        'name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"'
+      )
+      // iOS safe areas + themed background behind the status bar
+      html = html.replace(
+        '</head>',
+        `  <style>
+    html { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    body { background-color: #FAF9FD; }
+    @media (prefers-color-scheme: dark) { body { background-color: #111318; } }
+  </style>
+</head>`
+      )
       html = html.replace('</head>', TAGS + '  </head>')
       fs.writeFileSync(full, html)
       console.log('patched', path.relative(DIST, full))
