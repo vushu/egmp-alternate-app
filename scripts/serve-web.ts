@@ -32,6 +32,11 @@ import { URL } from 'url'
 const PORT = Number(process.env.PORT || 3000)
 const DIST_DIR = path.join(__dirname, '..', 'dist')
 
+// Base path the web export was built with (BLUEWINK_BASE_PATH at export time).
+// The export writes assets to dist/ root but references them under this prefix.
+// Defaults to "/" (no prefix) for backward compatibility.
+const BASE_PATH = (process.env.BLUEWINK_BASE_PATH?.trim().replace(/\/+$/, '') || '')
+
 // Password protection (optional). Hash format: "<scrypt-hex>:<salt-hex>"
 const PASSWORD_HASH = process.env.BLUEWINK_PASSWORD_HASH
 const SESSION_SECRET = process.env.BLUEWINK_SESSION_SECRET || crypto.randomBytes(32).toString('hex')
@@ -140,7 +145,7 @@ function handleLogin(req: http.IncomingMessage, res: http.ServerResponse) {
       const token = createSession()
       res.writeHead(303, {
         'Set-Cookie': `bluewink_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`,
-        Location: '/',
+        Location: BASE_PATH || '/',
       })
       res.end()
     } else {
@@ -197,11 +202,6 @@ function corsHeaders(origin: string | undefined): Record<string, string> {
     Vary: 'Origin',
   }
 }
-
-// Base path the web export was built with (BLUEWINK_BASE_PATH at export time).
-// The export writes assets to dist/ root but references them under this prefix.
-// Defaults to "/" (no prefix) for backward compatibility.
-const BASE_PATH = (process.env.BLUEWINK_BASE_PATH?.trim().replace(/\/+$/, '') || '')
 
 function serveStatic(req: http.IncomingMessage, res: http.ServerResponse, pathname: string) {
   // Strip the base path prefix so /<base>/_expo/... maps to dist/_expo/...

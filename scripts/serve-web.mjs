@@ -135,7 +135,7 @@ function handleLogin(req, res) {
       const token = createSession()
       res.writeHead(303, {
         'Set-Cookie': `bluewink_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`,
-        Location: '/',
+        Location: BASE_PATH || '/',
       })
       res.end()
     } else {
