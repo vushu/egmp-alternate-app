@@ -198,8 +198,17 @@ function corsHeaders(origin: string | undefined): Record<string, string> {
   }
 }
 
+// Base path the web export was built with (experiments.baseUrl in app.json).
+// The export writes assets to dist/ root but references them under this prefix.
+const BASE_PATH = process.env.BLUEWINK_BASE_PATH || '/bil/kona'
+
 function serveStatic(req: http.IncomingMessage, res: http.ServerResponse, pathname: string) {
-  let filePath = path.join(DIST_DIR, pathname === '/' ? 'index.html' : pathname)
+  // Strip the base path prefix so /bil/kona/_expo/... maps to dist/_expo/...
+  let diskPath = pathname
+  if (BASE_PATH !== '/' && diskPath.startsWith(BASE_PATH)) {
+    diskPath = diskPath.slice(BASE_PATH.length) || '/'
+  }
+  let filePath = path.join(DIST_DIR, diskPath === '/' ? 'index.html' : diskPath)
   // Prevent path traversal
   if (!path.resolve(filePath).startsWith(path.resolve(DIST_DIR))) {
     res.writeHead(403)
