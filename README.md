@@ -81,6 +81,39 @@ npx expo start --android   # or --ios
 
 Requires an Android emulator or iOS simulator, or a physical device with Expo Go.
 
+## Web / Self-Hosting
+
+The app also runs in the browser. Manufacturer APIs send no CORS headers, so
+browser builds route API calls through a proxy:
+
+```bash
+# Development (two terminals)
+npm run dev-proxy          # CORS proxy on :8788
+npx expo start --web       # app on :8081
+
+# Production (static build + proxy in one server)
+npx expo export --platform web   # builds static site into dist/
+npm run serve-web               # serves dist/ + /api-proxy on :3000
+```
+
+In production web builds, API calls go to a same-origin `/api-proxy/<host>/<path>`
+path. `scripts/serve-web.ts` provides this, or put nginx/caddy in front:
+
+```nginx
+location /api-proxy/ {
+    proxy_pass https://$upstream_host$request_uri;  # or use serve-web.ts directly
+}
+```
+
+The proxy only forwards to a hardcoded allowlist of manufacturer API hosts.
+
+**Self-hosting caveats:**
+- On web, credentials are stored in browser localStorage (not the encrypted
+  secure store used on native). Only host this on a server and network you
+  trust, and ideally for personal use only.
+- Put TLS in front (nginx/caddy) — tokens are sent to the proxy in headers.
+- Kia OAuth on web opens a popup and asks you to paste the redirect URL back.
+
 ## Project Structure
 
 ```

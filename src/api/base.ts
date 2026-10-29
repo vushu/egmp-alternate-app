@@ -67,16 +67,19 @@ export function isNotEmptyObject(obj: Record<string, any>): boolean {
 }
 
 // On web, manufacturer APIs are unreachable directly (no CORS headers).
-// Route requests through the local dev proxy (scripts/dev-proxy.ts) instead.
-// Dev-only: never active in release builds, and native is never proxied.
+// Route requests through a CORS proxy instead. In dev, that's the local
+// scripts/dev-proxy.ts; in production web builds, a same-origin reverse
+// proxy (e.g. nginx /api-proxy/) is expected. Native is never proxied.
 const DEV_PROXY_URL = 'http://localhost:8788'
+const PROD_PROXY_PATH = '/api-proxy'
 
 export function proxyUrlForWeb(url: string): string {
-  if (Platform.OS !== 'web' || !__DEV__) return url
+  if (Platform.OS !== 'web') return url
   try {
     const parsed = new URL(url)
     if (parsed.protocol !== 'https:') return url
-    return `${DEV_PROXY_URL}/${parsed.host}${parsed.pathname}${parsed.search}`
+    const base = __DEV__ ? DEV_PROXY_URL : PROD_PROXY_PATH
+    return `${base}/${parsed.host}${parsed.pathname}${parsed.search}`
   } catch {
     return url
   }

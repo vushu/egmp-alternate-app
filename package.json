@@ -13,6 +13,7 @@
     "test:command": "npx tsx scripts/test-commands.ts",
     "test:climate": "npx tsx scripts/test-climate.ts",
     "dev-proxy": "npx tsx scripts/dev-proxy.ts",
+    "serve-web": "npx tsx scripts/serve-web.ts",
     "build:android": "cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
