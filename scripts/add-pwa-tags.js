@@ -24,6 +24,8 @@ function walk(dir) {
     else if (entry.name.endsWith('.html')) {
       let html = fs.readFileSync(full, 'utf8')
       if (html.includes('rel="manifest"')) continue // already patched
+      // Proper app title (PWA install name, tab title)
+      html = html.replace(/<title>[^<]*<\/title>/, '<title>Bluewink</title>')
       // iPhone notch/Dynamic Island: extend web content into safe areas
       html = html.replace(
         'name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"',
