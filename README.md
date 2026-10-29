@@ -136,6 +136,11 @@ Details:
 - Set `BLUEWINK_SESSION_SECRET` too if you want stable sessions across restarts
   (otherwise a new secret is generated each start, invalidating sessions)
 
+### Deploying to a server (nginx + systemd)
+
+See [deploy/README.md](deploy/README.md) for the full guide — nginx site config,
+systemd service file, and TLS setup. The app serves under `/bil/kona`.
+
 ## Project Structure
 
 ```
