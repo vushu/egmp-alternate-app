@@ -114,6 +114,28 @@ The proxy only forwards to a hardcoded allowlist of manufacturer API hosts.
 - Put TLS in front (nginx/caddy) — tokens are sent to the proxy in headers.
 - Kia OAuth on web opens a popup and asks you to paste the redirect URL back.
 
+### Password protection (recommended)
+
+`serve-web.ts` can require a password before serving anything (app files and
+API proxy alike). Generate a scrypt hash of your password:
+
+```bash
+node -e "const c=require('crypto');const s=c.randomBytes(16);console.log(c.scryptSync(process.argv[1],s,64).toString('hex')+':'+s.toString('hex'))" 'YOUR_PASSWORD'
+```
+
+Then start the server with it:
+
+```bash
+BLUEWINK_PASSWORD_HASH='<hash>' npm run serve-web
+```
+
+Details:
+- The password itself is never stored — only the salted scrypt hash
+- Sessions use random 256-bit tokens in httpOnly, SameSite=Strict cookies (30 days)
+- Login attempts are rate-limited (5 per 15 min per IP)
+- Set `BLUEWINK_SESSION_SECRET` too if you want stable sessions across restarts
+  (otherwise a new secret is generated each start, invalidating sessions)
+
 ## Project Structure
 
 ```
